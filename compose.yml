@@ -17,7 +17,7 @@ services:
       interval: 5s
       timeout: 10s
       start_period: 10s
-  terraform-lint:
+  terraform-linter:
     image: ghcr.io/terraform-linters/tflint:v0.50.3
     volumes:
       - ./terraform:/data
@@ -27,7 +27,7 @@ services:
       - ./terraform:/infra
     working_dir: /infra
     depends_on:
-      terraform-lint:
+      terraform-linter:
         condition: service_completed_successfully
     command: ['init']
     env_file:
