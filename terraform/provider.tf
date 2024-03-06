@@ -29,11 +29,5 @@ terraform {
       version = "2.4.1"
     }
   }
-
-#  backend "s3" {
-#    bucket         = "terraform-state"
-#    key            = "terraform/state"
-#    region         = "eu-central-1"  # Change to your desired AWS region
-#  }
 }
 
