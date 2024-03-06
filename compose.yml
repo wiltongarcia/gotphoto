@@ -1,0 +1,89 @@
+version: "3.8"
+
+services:
+  localstack:
+    image: localstack/localstack:3.2.0
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    volumes:
+      - "./var/localstack:/var/lib/localstack"
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - awslocal s3 ls
+      interval: 5s
+      timeout: 10s
+      start_period: 10s
+  terraform-lint:
+    image: ghcr.io/terraform-linters/tflint:v0.50.3
+    volumes:
+      - ./terraform:/data
+  terraform-init:
+    image: hashicorp/terraform:1.7.4
+    volumes:
+      - ./terraform:/infra
+    working_dir: /infra
+    depends_on:
+      terraform-lint:
+        condition: service_completed_successfully
+    command: ['init']
+    env_file:
+      - .env
+  terraform-plan:
+    image: hashicorp/terraform:1.7.4
+    volumes:
+      - ./terraform:/infra
+    working_dir: /infra
+    depends_on:
+      terraform-init:
+        condition: service_completed_successfully
+    command: ['plan']
+    env_file:
+      - .env
+  terraform-apply:
+    image: hashicorp/terraform:1.7.4
+    volumes:
+      - ./terraform:/infra
+    working_dir: /infra
+    depends_on:
+      localstack:
+        condition: service_healthy
+      terraform-plan:
+        condition: service_completed_successfully
+    command: ['apply', '-auto-approve']
+    env_file:
+      - .env
+  s3-file-exists:
+    image: amazon/aws-cli:2.15.25
+    depends_on:
+      localstack:
+        condition: service_healthy
+      terraform-apply:
+        condition: service_completed_successfully
+    command: ['s3', 'ls', 's3://date/timestamp.txt', '--endpoint-url=http://localstack:4566']
+    env_file:
+      - .env
+  s3-file-download:
+    image: amazon/aws-cli:2.15.25
+    depends_on:
+      localstack:
+        condition: service_healthy
+      s3-file-exists:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/data
+    command: ['s3api', 'get-object', '--bucket', 'date', '--key', 'timestamp.txt', '/data/downloaded_timestamp.txt', '--endpoint-url=http://localstack:4566']
+    env_file:
+      - .env
+  compare-files:
+    image: alpine:3.19.1
+    depends_on:
+      s3-file-download:
+        condition: service_completed_successfully
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: ['/bin/sh', 'compare_files.sh']

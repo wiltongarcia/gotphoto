@@ -1,0 +1,53 @@
+name: Infrastructure CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test new code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Run linter
+        run: docker compose up terraform-linter
+
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Start Localstack
+        run: docker compose up -d localstack
+
+      - name: Terraform Init and Plan
+        run: docker compose up terraform-init terraform-plan
+
+      - name: Stop Localstack
+        run: docker compose down
+
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Start LocalStack
+        run: docker compose up -d localstack
+
+      - name: Terraform Init and apply
+        run: docker compose up terraform-init terraform-apply
